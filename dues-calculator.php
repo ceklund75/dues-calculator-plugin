@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Dues Calculator
  * Description: Calculates projected dues from an hourly rate.
- * Version:     1.0.0
- * Author:      Your Name
+ * Version:     1.0.9
+ * Author:      Chris Eklund
  * Text Domain: dues-calculator
  */
 
@@ -22,11 +22,10 @@ function dc_register_settings() {
             'type'              => 'array',
             'sanitize_callback' => 'dc_sanitize_options',
             'default'           => array(
-                'factor'          => '2.5',
-                'hours_per_month' => '160',
-                'parent_class'    => 'elementor-kit-7',
-                'title'           => "Learn How Much You'll Pay in Dues?",
-                'subtitle'        => 'Enter your hourly rate:',
+                'factor'       => '2.5',
+                'parent_class' => 'elementor-kit-7',
+                'title'        => "HOW MUCH WILL YOU PAY IN UNION DUES?",
+                'subtitle'     => 'Enter your hourly rate:',
             ),
         )
     );
@@ -42,14 +41,6 @@ function dc_register_settings() {
         'dc_factor',
         'Multiplier Factor',
         'dc_field_factor',
-        'dc_settings_page',
-        'dc_main_section'
-    );
-
-    add_settings_field(
-        'dc_hours_per_month',
-        'Hours per Month',
-        'dc_field_hours_per_month',
         'dc_settings_page',
         'dc_main_section'
     );
@@ -86,11 +77,10 @@ add_action( 'admin_init', 'dc_register_settings' );
 function dc_sanitize_options( $input ) {
     $output = array();
 
-    $output['factor']          = isset( $input['factor'] ) ? floatval( $input['factor'] ) : 2.5;
-    $output['hours_per_month'] = isset( $input['hours_per_month'] ) ? floatval( $input['hours_per_month'] ) : 160;
-    $output['parent_class']    = isset( $input['parent_class'] ) ? sanitize_html_class( $input['parent_class'] ) : 'elementor-kit-7';
-    $output['title']           = isset( $input['title'] ) ? sanitize_text_field( $input['title'] ) : "Learn How Much You'll Pay in Dues?";
-    $output['subtitle']        = isset( $input['subtitle'] ) ? sanitize_text_field( $input['subtitle'] ) : 'Enter your hourly rate:';
+    $output['factor']       = isset( $input['factor'] ) ? floatval( $input['factor'] ) : 2.5;
+    $output['parent_class'] = isset( $input['parent_class'] ) ? sanitize_html_class( $input['parent_class'] ) : 'elementor-kit-7';
+    $output['title']        = isset( $input['title'] ) ? sanitize_text_field( $input['title'] ) : "HOW MUCH WILL YOU PAY IN UNION DUES?";
+    $output['subtitle']     = isset( $input['subtitle'] ) ? sanitize_text_field( $input['subtitle'] ) : 'Enter your hourly rate:';
 
     return $output;
 }
@@ -120,6 +110,17 @@ function dc_render_settings_page() {
     ?>
     <div class="wrap">
         <h1>Dues Calculator</h1>
+
+        <p>
+            Use the shortcode
+            <code>[hourly_calculator]</code>
+            in any post, page, or Elementor Shortcode widget to display the dues calculator form on the front end.
+        </p>
+        <p>
+            The defaults configured below (factor, parent CSS class, title, and subtitle) will be used
+            whenever you insert the shortcode without overriding attributes.
+        </p>
+
         <form action="options.php" method="post">
             <?php
             settings_fields( 'dc_options_group' );
@@ -136,11 +137,10 @@ function dc_render_settings_page() {
  */
 function dc_get_options() {
     $defaults = array(
-        'factor'          => '2.5',
-        'hours_per_month' => '160',
-        'parent_class'    => 'elementor-kit-7',
-        'title'           => "Learn How Much You'll Pay in Dues?",
-        'subtitle'        => 'Enter your hourly rate:',
+        'factor'       => '2.5',
+        'parent_class' => 'elementor-kit-7',
+        'title'        => "HOW MUCH WILL YOU PAY IN UNION DUES?",
+        'subtitle'     => 'Enter your hourly rate:',
     );
 
     $opts = get_option( 'dc_options', array() );
@@ -152,14 +152,6 @@ function dc_field_factor() {
     ?>
     <input type="number" step="0.01" name="dc_options[factor]" value="<?php echo esc_attr( $options['factor'] ); ?>" />
     <p class="description">Multiplier applied to the hourly rate (default 2.5).</p>
-    <?php
-}
-
-function dc_field_hours_per_month() {
-    $options = dc_get_options();
-    ?>
-    <input type="number" step="1" name="dc_options[hours_per_month]" value="<?php echo esc_attr( $options['hours_per_month'] ); ?>" />
-    <p class="description">Typical hours worked per month (default 160).</p>
     <?php
 }
 
@@ -193,26 +185,25 @@ function dc_hourly_projection_calculator_shortcode( $atts ) {
 
     $atts = shortcode_atts(
         array(
-            'factor'          => $options['factor'],
-            'hours_per_month' => $options['hours_per_month'],
-            'parent_class'    => $options['parent_class'],
-            'title'           => $options['title'],
-            'subtitle'        => $options['subtitle'],
+            'factor'       => $options['factor'],
+            'parent_class' => $options['parent_class'],
+            'title'        => $options['title'],
+            'subtitle'     => $options['subtitle'],
         ),
         $atts,
         'hourly_calculator'
     );
 
-    $factor          = floatval( $atts['factor'] );
-    $hours_per_month = floatval( $atts['hours_per_month'] );
-    $parent_class    = sanitize_html_class( $atts['parent_class'] );
-    $title           = sanitize_text_field( $atts['title'] );
-    $subtitle        = sanitize_text_field( $atts['subtitle'] );
+    $factor       = floatval( $atts['factor'] ); // direct multiplier, e.g. 2.5
+    $parent_class = sanitize_html_class( $atts['parent_class'] );
+    $title        = sanitize_text_field( $atts['title'] );
+    $subtitle     = sanitize_text_field( $atts['subtitle'] );
 
     $hourly_rate     = '';
     $monthly_total   = '';
     $yearly_total    = '';
     $five_year_total = '';
+    $error_message   = '';
 
     if ( isset( $_POST['hpc_submit'] ) ) {
         if ( ! isset( $_POST['hpc_nonce'] ) || ! wp_verify_nonce( $_POST['hpc_nonce'], 'hpc_calc' ) ) {
@@ -222,10 +213,11 @@ function dc_hourly_projection_calculator_shortcode( $atts ) {
         $hourly_rate = isset( $_POST['hpc_hourly_rate'] ) ? floatval( $_POST['hpc_hourly_rate'] ) : 0;
 
         if ( $hourly_rate > 0 ) {
-            $effective_hourly = $hourly_rate * $factor;
-            $monthly_total    = $effective_hourly * $hours_per_month;
-            $yearly_total     = $monthly_total * 12;
-            $five_year_total  = $yearly_total * 5;
+            $monthly_total   = $hourly_rate * $factor;
+            $yearly_total    = $monthly_total * 12;
+            $five_year_total = $yearly_total * 5;
+        } else {
+            $error_message = 'Please enter an hourly rate greater than 0 to see your dues.';
         }
     }
 
@@ -233,73 +225,255 @@ function dc_hourly_projection_calculator_shortcode( $atts ) {
     ?>
     <style>
         .hpc-wrapper {
-            background-color: #2d2d2d;
-            color: #f5f5f5;
-            padding: 2.5rem;
-            border-radius: 8px;
+            background-color: #123B6B; /* Dark Blue band */
+            padding: 1.5rem 1.25rem;
+            border-radius: 12px;
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.3);
         }
-        .hpc-wrapper h2 {
+
+        .hpc-inner {
+            background-color: #F8F8F8; /* Off White card */
+            color: #101010;            /* Near Black text */
+            border-radius: 10px;
+            padding: 2rem 2rem 2.25rem;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+        }
+
+        .hpc-inner h2 {
             margin-top: 0;
             margin-bottom: 0.5rem;
+            font-size: 2rem;
+            line-height: 1.2;
+            color: #123B6B; /* Dark Blue heading */
         }
-        .hpc-wrapper p {
-            margin-bottom: 0.75rem;
+
+        .hpc-inner p {
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            color: #494949; /* Dark Gray for body */
         }
-        .hpc-wrapper label {
+
+        .hpc-inner label {
             display: block;
             margin-bottom: 0.25rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #336793; /* Medium Blue */
         }
-        .hpc-wrapper input[type="number"],
-        .hpc-wrapper input[type="submit"] {
-            padding: 0.5rem 0.75rem;
+
+        .hpc-inner input[type="number"] {
+            padding: 0.35rem 0.5rem;
             border-radius: 4px;
-            border: 1px solid #444;
+            border: 1px solid #A6C8E4; /* Light Blue */
+            background-color: #FFFFFF;
+            color: #101010;
+            width: 120px;
+            max-width: 100%;
+            box-sizing: border-box;
+            font-size: 0.9rem;
         }
-        .hpc-wrapper input[type="submit"] {
+
+        .hpc-inner input[type="number"]:focus {
+            outline: none;
+            border-color: #336793;
+            box-shadow: 0 0 0 1px #336793;
+        }
+
+        .hpc-inner input[type="submit"] {
+            padding: 0.5rem 1.25rem;
+            border-radius: 999px;
+            border: none;
             cursor: pointer;
-            background-color: #444;
-            color: #f5f5f5;
-            border-color: #555;
+            background: linear-gradient(135deg, #5F5DB3, #336793); /* Purple → Medium Blue */
+            color: #F8F8F8;
+            font-weight: 600;
+            font-size: 0.95rem;
+            letter-spacing: 0.02em;
+            margin-top: 0.25rem;
         }
-        .hpc-wrapper .hpc-results {
-            margin-top: 1.5rem;
+
+        .hpc-inner input[type="submit"]:hover {
+            background: linear-gradient(135deg, #44437D, #123B6B); /* Dark Purple → Dark Blue */
+        }
+
+        /* Results: 3-column stat layout */
+        .hpc-results {
+            margin-top: 2rem;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1.5rem;
+        }
+
+        .hpc-result-item {
+            background-color: #D7E9F7; /* Pale Blue */
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+            border: 1px solid #A6C8E4; /* Light Blue border */
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+        }
+
+        .hpc-result-label {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #336793; /* Medium Blue */
+            margin-bottom: 0.5rem;
+        }
+
+        .hpc-result-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #123B6B; /* Dark Blue number */
+        }
+
+        .hpc-result-value::after {
+            content: '';
+            display: block;
+            margin-top: 0.4rem;
+            width: 40%;
+            height: 3px;
+            background: linear-gradient(90deg, #A6C8E4, #5F5DB3); /* Light Blue → Purple */
+            border-radius: 999px;
+        }
+        .hpc-error {
+            margin-bottom: 1rem;
+            padding: 0.6rem 0.8rem;
+            border-radius: 6px;
+            background-color: #FCE8E8;
+            color: #8A1F1F;
+            font-size: 0.9rem;
+            border: 1px solid #F5C2C2;
+        }
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hpc-wrapper {
+                padding: 1.25rem 1rem;
+            }
+            .hpc-inner {
+                padding: 1.5rem 1.5rem 1.75rem;
+            }
+            .hpc-results {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 
+    <script>
+    (function() {
+        function animateValue(el, end, duration) {
+            if (!el) return;
+
+            const start = 0;
+            const startTime = performance.now();
+            const formatter = new Intl.NumberFormat(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+
+            function frame(now) {
+                const elapsed = now - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const value = start + (end - start) * progress;
+
+                el.textContent = '$' + formatter.format(value);
+
+                if (progress < 1) {
+                    requestAnimationFrame(frame);
+                }
+            }
+
+            requestAnimationFrame(frame);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.querySelector('.hpc-wrapper');
+            if (!container) return;
+
+            const monthEl = container.querySelector('[data-hpc-total="month"]');
+            const yearEl  = container.querySelector('[data-hpc-total="year"]');
+            const fiveEl  = container.querySelector('[data-hpc-total="five"]');
+
+            if (!monthEl || !yearEl || !fiveEl) return;
+
+            const monthVal = parseFloat(monthEl.getAttribute('data-hpc-value')) || 0;
+            const yearVal  = parseFloat(yearEl.getAttribute('data-hpc-value')) || 0;
+            const fiveVal  = parseFloat(fiveEl.getAttribute('data-hpc-value')) || 0;
+
+            // 800–1200ms feels snappy but readable
+            animateValue(monthEl, monthVal, 900);
+            animateValue(yearEl,  yearVal,  900);
+            animateValue(fiveEl,  fiveVal,  900);
+        });
+    })();
+    </script>
+
     <div class="<?php echo esc_attr( $parent_class ); ?>">
         <div class="hpc-wrapper">
-            <h2><?php echo esc_html( $title ); ?></h2>
-            <p><?php echo esc_html( $subtitle ); ?></p>
-
-            <form method="post">
-                <?php wp_nonce_field( 'hpc_calc', 'hpc_nonce' ); ?>
-                <p>
-                    <label for="hpc_hourly_rate">Hourly rate</label>
-                    <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        name="hpc_hourly_rate"
-                        id="hpc_hourly_rate"
-                        value="<?php echo esc_attr( $hourly_rate ); ?>"
-                    />
-                </p>
-                <p>
-                    <input type="submit" name="hpc_submit" value="Calculate" />
-                </p>
-            </form>
+            <div class="hpc-inner">
+                <h2><?php echo esc_html( $title ); ?></h2>
+                <p><?php echo esc_html( $subtitle ); ?></p>
+                <?php if ( ! empty( $error_message ) ) : ?>
+                    <div class="hpc-error">
+                        <?php echo esc_html( $error_message ); ?>
+                    </div>
+                <?php endif; ?>
+                <form method="post">
+                    <?php wp_nonce_field( 'hpc_calc', 'hpc_nonce' ); ?>
+                    <p>
+                        <label for="hpc_hourly_rate">Hourly rate</label>
+                        <input
+                            type="number"
+                            size="6"
+                            step="0.01"
+                            min="0"
+                            name="hpc_hourly_rate"
+                            id="hpc_hourly_rate"
+                            value="<?php echo esc_attr( $hourly_rate ); ?>"
+                        />
+                    </p>
+                    <p>
+                        <input type="submit" name="hpc_submit" value="Calculate" />
+                    </p>
+                </form>
 
             <?php if ( $monthly_total !== '' ) : ?>
-                <div class="hpc-results">
-                    <p>Factor used: <?php echo esc_html( $factor ); ?></p>
-                    <p>Hours per month: <?php echo esc_html( $hours_per_month ); ?></p>
-                    <p>Monthly total: <?php echo esc_html( number_format( $monthly_total, 2 ) ); ?></p>
-                    <p>Yearly total: <?php echo esc_html( number_format( $yearly_total, 2 ) ); ?></p>
-                    <p>5-year total: <?php echo esc_html( number_format( $five_year_total, 2 ) ); ?></p>
-                </div>
-            <?php endif; ?>
+                    <div class="hpc-results">
+                        <div class="hpc-result-item">
+                            <div class="hpc-result-label">Your dues per month</div>
+                            <div
+                                class="hpc-result-value"
+                                data-hpc-total="month"
+                                data-hpc-value="<?php echo esc_attr( $monthly_total ); ?>"
+                            >
+                                <?php echo esc_html( number_format( $monthly_total, 2 ) ); ?>
+                            </div>
+                        </div>
+                        <div class="hpc-result-item">
+                            <div class="hpc-result-label">Your dues per year</div>
+                            <div
+                                class="hpc-result-value"
+                                data-hpc-total="year"
+                                data-hpc-value="<?php echo esc_attr( $yearly_total ); ?>"
+                            >
+                                <?php echo esc_html( number_format( $yearly_total, 2 ) ); ?>
+                            </div>
+                        </div>
+                        <div class="hpc-result-item">
+                            <div class="hpc-result-label">Your dues for a 5-year contract</div>
+                            <div
+                                class="hpc-result-value"
+                                data-hpc-total="five"
+                                data-hpc-value="<?php echo esc_attr( $five_year_total ); ?>"
+                            >
+                                <?php echo  esc_html( number_format( $five_year_total, 2 ) ); ?>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
+
     <?php
     return ob_get_clean();
 }
