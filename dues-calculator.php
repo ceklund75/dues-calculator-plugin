@@ -129,7 +129,7 @@ function dc_render_settings_page() {
             in any post, page, or Elementor Shortcode widget to display the dues calculator form on the front end.
         </p>
         <p>
-            The defaults configured below (factor, parent CSS class, title, and subtitle) will be used
+            The defaults configured below (factor, default hourly rate, parent CSS class, title, and subtitle) will be used
             whenever you insert the shortcode without overriding attributes.
         </p>
 
